@@ -235,6 +235,48 @@ const EnemyBullet = struct {
     }
 };
 
+const Shield = struct {
+    position_x: f32,
+    position_y: f32,
+    width: f32,
+    height: f32,
+    health: f32,
+
+    pub fn init(position_x: f32, position_y: f32, width: f32, height: f32) @This() {
+        return .{
+            .position_x = position_x,
+            .position_y = position_y,
+            .width = width,
+            .height = height,
+            .health = 10,
+        };
+    }
+
+    pub fn getRect(self: @This()) Rectangle {
+        return .{
+            .x = self.position_x,
+            .y = self.position_y,
+            .width = self.width,
+            .height = self.height,
+        };
+    }
+
+    pub fn draw(self: @This()) void {
+        if (self.health > 0) {
+            // Initially used @as(u8, @intCast(@min(255, self.health * 25)));
+            // but recieved a compiler error from that so temporarily changed it.
+            const alpha = @as(u8, @intFromFloat(@min(255.0, self.health * 25.0)));
+            rl.drawRectangle(
+                @intFromFloat(self.position_x),
+                @intFromFloat(self.position_y),
+                @intFromFloat(self.width),
+                @intFromFloat(self.height),
+                rl.Color{ .r = 0, .g = 255, .b = 255, .a = alpha },
+            );
+        }
+    }
+};
+
 pub fn main() void {
     const screenWidth = 800;
     const screenHeight = 600;
@@ -255,6 +297,12 @@ pub fn main() void {
     const maxEnemyBullets = 20;
     const enemyShootDelay = 60;
     const enemyShootChance = 5;
+    const shieldCount = 4;
+    const shieldWidth = 80.0;
+    const sheildHeight = 60.0;
+    const shieldStartX = 150.0;
+    const shieldY = 450.0;
+    const shieldSpacing = 150.0;
     var game_over = false;
     var score: i32 = 0;
     var invader_direction: f32 = 1.0;
@@ -273,6 +321,12 @@ pub fn main() void {
         playerWidth,
         playerHeight,
     );
+
+    var shields: [shieldCount]Shield = undefined;
+    for (&shields, 0..) |*shield, i| {
+        const x = shieldStartX + @as(f32, @floatFromInt(i)) * shieldSpacing;
+        shield.* = Shield.init(x, shieldY, shieldWidth, sheildHeight);
+    }
 
     var bullets: [maxBullets]Bullet = undefined;
     for (&bullets) |*bullet| {
@@ -343,6 +397,16 @@ pub fn main() void {
                         }
                     }
                 }
+
+                for (&shields) |*shield| {
+                    if (shield.health > 0) {
+                        if (bullet.getRect().intersects(shield.getRect())) {
+                            bullet.active = false;
+                            shield.health -= 1;
+                            break;
+                        }
+                    }
+                }
             }
         }
 
@@ -352,6 +416,15 @@ pub fn main() void {
                 if (bullet.getRect().intersects(player.getRect())) {
                     bullet.active = false;
                     game_over = true;
+                }
+                for (&shields) |*shield| {
+                    if (shield.health > 0) {
+                        if (bullet.getRect().intersects(shield.getRect())) {
+                            bullet.active = false;
+                            shield.health -= 1;
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -409,6 +482,10 @@ pub fn main() void {
         }
 
         // DRAW LOGIC
+        for (&shields) |*shield| {
+            shield.draw();
+        }
+
         player.draw();
         for (&bullets) |*bullet| {
             bullet.draw();
